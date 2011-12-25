@@ -35,6 +35,8 @@
 closure compatible javascript (.js) files.
 Can use as a standalone task or can hook into the normal compile task.
 Uses project name or group for outputfile. Accepts commandline args.
+Run lein clojurescript watch to continually watch for changes to the source
+files and recompile them.
 examples: lein clojurescript
           lein compile '{:output-dir \"myout\" :output-to \"bla.js\" \\
               :optimizations :advanced}'"
