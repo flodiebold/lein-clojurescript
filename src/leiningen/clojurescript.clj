@@ -1,5 +1,6 @@
 (ns ^{:doc "clojurescript leiningen plugin" :author "justin barton"}
   leiningen.clojurescript
+  (:use leiningen.clojurescript.util)
   (:require [clojure.string :as string]
             [clojure.java.io :as io]
             [robert.hooke :as hooke]
@@ -9,11 +10,6 @@
 (defn- clojurescript-arg? [arg]
   (-> arg str string/trim seq first (= \{)))
 
-(defn- clojurescript-file? [filename]
-  (.endsWith (string/lower-case filename) ".cljs"))
-
-(def getName (memfn getName))
-
 (defn- cljsc [project source-dir options]
   (binding [leiningen.compile/*skip-auto-compile* true]
     (leiningen.compile/eval-in-project
@@ -22,13 +18,13 @@
      nil nil
      '(require '[cljs.closure :as cljsc]))))
 
-(defn- cljs-files [dir]
-  (seq (filter (comp clojurescript-file? getName)
-               (file-seq (io/file dir)))))
-
-(defn- newer-than? [time file]
-  (let [last-modified (.lastModified file)]
-    (> last-modified time)))
+(defn- cljsc-watch [project source-dir options]
+  (binding [leiningen.compile/*skip-auto-compile* true]
+    (leiningen.compile/eval-in-project
+     (dissoc project :source-path)
+     `(lein-cljs/watch ~source-dir ~options)
+     nil nil
+     '(require '[leiningen.clojurescript.watch :as lein-cljs]))))
 
 (defn clojurescript
   "lein-clojurescript: Compiles clojurescript (.cljs) files in src to google
@@ -46,26 +42,8 @@ examples: lein clojurescript
                     (map read-string (filter clojurescript-arg? args)))
         sourcedir (or (:clojurescript-src project) (:src-dir opts) "src")]
     (cond
-     (= (first args) "watch")
-     (let [args (rest args)
-           last-compiled (atom 0)]
-       (apply clojurescript project args)
-       (reset! last-compiled (System/currentTimeMillis))
-       (println "Watching for changes in" sourcedir "... ")
-       (while true
-         (Thread/sleep 1000)
-         (let [cljsfiles (cljs-files sourcedir)
-               compile-needed (some (partial newer-than? @last-compiled)
-                                    cljsfiles)
-               starttime (.getTime (Date.))]
-           (when compile-needed
-             (print "Compiling updated files... ")
-             (flush)
-             (cljsc project sourcedir opts)
-             (println (format "compiled %d files to %s/ and '%s' (took %d ms)"
-                            (count cljsfiles) (:output-dir opts) (:output-to opts)
-                            (- (.getTime (Date.)) starttime)))
-             (reset! last-compiled (System/currentTimeMillis))))))
+     (= (first args) "watch") (cljsc-watch project sourcedir opts)
+     
      :default
      (let [starttime (.getTime (Date.))]
        (print (str "Compiling clojurescript in " sourcedir " ... "))
