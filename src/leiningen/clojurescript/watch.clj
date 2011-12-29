@@ -1,6 +1,7 @@
 (ns leiningen.clojurescript.watch
   (:use leiningen.clojurescript.util)
-  (:require cljs.closure)
+  (:require cljs.closure
+            [clojure.repl :as repl])
   (:import java.util.Date))
 
 (defn- newer-than? [time file]
@@ -18,8 +19,12 @@
             starttime (.getTime (Date.))]
         (when compile-needed
           (print "Compiling updated files... ")
-          (cljs.closure/build source-dir options)
-          (reset! last-compiled (System/currentTimeMillis))
-          (println (format "compiled %d files to %s/ and '%s' (took %d ms)"
-                           (count cljsfiles) (:output-dir options) (:output-to options)
-                           (- (.getTime (Date.)) starttime))))))))
+          (try
+            (cljs.closure/build source-dir options)
+            (println (format "compiled %d files to %s/ and '%s' (took %d ms)"
+                             (count cljsfiles) (:output-dir options) (:output-to options)
+                           (- (.getTime (Date.)) starttime)))
+            (catch Exception e
+              (println "failed!")
+              (repl/pst e)))
+          (reset! last-compiled (System/currentTimeMillis)))))))
